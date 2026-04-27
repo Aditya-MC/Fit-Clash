@@ -12,7 +12,8 @@ export default function StravaCallbackPage() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    const intent = sessionStorage.getItem("fitclash-strava-intent") || "login";
+    const stateIntent = searchParams.get("state");
+    const intent = stateIntent || sessionStorage.getItem("fitclash-strava-intent") || "login";
 
     const run = async () => {
       if (!code) {

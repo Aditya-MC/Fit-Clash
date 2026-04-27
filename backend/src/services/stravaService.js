@@ -54,7 +54,7 @@ const postTokenRequest = async (params) => {
   };
 };
 
-export const getStravaAuthUrl = () => {
+export const getStravaAuthUrl = (state) => {
   assertStravaConfig();
 
   const params = new URLSearchParams({
@@ -64,6 +64,10 @@ export const getStravaAuthUrl = () => {
     approval_prompt: "auto",
     scope: "read,activity:read_all"
   });
+
+  if (state) {
+    params.set("state", state);
+  }
 
   return `https://www.strava.com/oauth/authorize?${params.toString()}`;
 };

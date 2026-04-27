@@ -34,7 +34,7 @@ const buildStravaIdentity = (tokens) => {
 
 export const getStravaLoginUrl = async (_req, res) => {
   try {
-    return res.json({ url: getStravaAuthUrl() });
+    return res.json({ url: getStravaAuthUrl("login") });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to prepare Strava login." });
   }

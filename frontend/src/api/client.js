@@ -12,7 +12,8 @@ const request = async (path, options = {}) => {
     ...options
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json") ? await response.json() : { message: await response.text() };
 
   if (!response.ok) {
     throw new Error(data.message || "Something went wrong.");
