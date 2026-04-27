@@ -143,7 +143,15 @@ export const getGroupDetails = async (req, res) => {
 
     return res.json({
       ...populatedGroup,
-      leaderboard
+      leaderboard,
+      recentActivities: activities
+        .slice()
+        .sort((left, right) => new Date(right.startedAt) - new Date(left.startedAt))
+        .slice(0, 12)
+        .map((activity) => ({
+          ...activity,
+          user: populatedGroup.members.find((member) => member.user._id === activity.user)?.user || null
+        }))
     });
   }
 
@@ -175,7 +183,11 @@ export const getGroupDetails = async (req, res) => {
 
   return res.json({
     ...group.toObject(),
-    leaderboard
+    leaderboard,
+    recentActivities: activities.slice(0, 12).map((activity) => ({
+      ...activity.toObject(),
+      user: group.members.find((member) => member.user._id.toString() === activity.user.toString())?.user || null
+    }))
   });
 };
 

@@ -33,7 +33,11 @@ const buildStravaIdentity = (tokens) => {
 };
 
 export const getStravaLoginUrl = async (_req, res) => {
-  return res.json({ url: getStravaAuthUrl() });
+  try {
+    return res.json({ url: getStravaAuthUrl() });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to prepare Strava login." });
+  }
 };
 
 export const registerUser = async (req, res) => {
@@ -117,55 +121,68 @@ export const getMe = async (req, res) => {
 };
 
 export const loginWithStrava = async (req, res) => {
-  const { code } = req.body;
+  try {
+    const { code } = req.body;
 
-  if (!code) {
-    return res.status(400).json({ message: "Authorization code is required." });
-  }
+    if (!code) {
+      return res.status(400).json({ message: "Authorization code is required." });
+    }
 
-  const tokens = await exchangeCodeForToken(code);
-  const stravaIdentity = buildStravaIdentity(tokens);
+    const tokens = await exchangeCodeForToken(code);
+    const stravaIdentity = buildStravaIdentity(tokens);
 
-  if (demoStore.isEnabled()) {
-    let user = demoStore.getUserByEmail(stravaIdentity.email);
-    if (!user) {
-      user = await demoStore.createUser({
-        name: stravaIdentity.name,
-        email: stravaIdentity.email,
-        password: stravaIdentity.password
+    if (demoStore.isEnabled()) {
+      let user = demoStore.getUserByEmail(stravaIdentity.email);
+      if (!user) {
+        user = await demoStore.createUser({
+          name: stravaIdentity.name,
+          email: stravaIdentity.email,
+          password: stravaIdentity.password
+        });
+      }
+
+      demoStore.markStravaConnected(user._id, tokens);
+      const connectedUser = demoStore.getUserById(user._id);
+
+      return res.json({
+        token: generateToken(user._id),
+        user: safeUser(connectedUser)
       });
     }
 
-    demoStore.markStravaConnected(user._id, tokens);
-    const connectedUser = demoStore.getUserById(user._id);
-
-    return res.json({
-      token: generateToken(user._id),
-      user: safeUser(connectedUser)
+    let user = await User.findOne({
+      $or: [{ "strava.athleteId": tokens.athleteId }, { email: stravaIdentity.email }]
     });
-  }
 
-  let user = await User.findOne({
-    $or: [{ "strava.athleteId": tokens.athleteId }, { email: stravaIdentity.email }]
-  });
+    if (!user) {
+      try {
+        const hashedPassword = await bcrypt.hash(stravaIdentity.password, 10);
+        user = await User.create({
+          name: stravaIdentity.name,
+          email: stravaIdentity.email,
+          password: hashedPassword,
+          avatar: stravaIdentity.avatar,
+          strava: {
+            athleteId: tokens.athleteId,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt
+          }
+        });
+      } catch (error) {
+        if (error.code !== 11000) {
+          throw error;
+        }
 
-  if (!user) {
-    const hashedPassword = await bcrypt.hash(stravaIdentity.password, 10);
-    user = await User.create({
-      name: stravaIdentity.name,
-      email: stravaIdentity.email,
-      password: hashedPassword,
-      avatar: stravaIdentity.avatar,
-      strava: {
-        athleteId: tokens.athleteId,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: tokens.expiresAt
+        user = await User.findOne({
+          $or: [{ "strava.athleteId": tokens.athleteId }, { email: stravaIdentity.email }]
+        });
       }
-    });
-  } else {
-    user.name = user.name || stravaIdentity.name;
-    user.avatar = user.avatar || stravaIdentity.avatar;
+    } else {
+      user.name = user.name || stravaIdentity.name;
+      user.avatar = user.avatar || stravaIdentity.avatar;
+    }
+
     user.strava = {
       athleteId: tokens.athleteId,
       accessToken: tokens.accessToken,
@@ -173,10 +190,14 @@ export const loginWithStrava = async (req, res) => {
       expiresAt: tokens.expiresAt
     };
     await user.save();
-  }
 
-  return res.json({
-    token: generateToken(user._id),
-    user: safeUser(user)
-  });
+    return res.json({
+      token: generateToken(user._id),
+      user: safeUser(user)
+    });
+  } catch (error) {
+    const message = error.message || "Failed to authenticate with Strava.";
+    const statusCode = /authorization code|bad request|invalid/i.test(message) ? 400 : 500;
+    return res.status(statusCode).json({ message });
+  }
 };

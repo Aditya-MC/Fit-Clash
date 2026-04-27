@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
+import ActivityFeed from "../components/ActivityFeed.jsx";
 import LeaderboardTable from "../components/LeaderboardTable.jsx";
 import PlayerCard from "../components/PlayerCard.jsx";
 import Podium from "../components/Podium.jsx";
@@ -112,6 +113,8 @@ export default function GroupPage() {
         />
         <PlayerCard player={playerCard} />
       </section>
+
+      <ActivityFeed activities={group.recentActivities} />
     </div>
   );
 }

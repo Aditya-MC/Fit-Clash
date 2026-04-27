@@ -1,10 +1,25 @@
 const round = (value) => Math.round(value);
 
 const formatDateKey = (value) => new Date(value).toISOString().slice(0, 10);
+const normalizeType = (value) => (value || "").toLowerCase();
+
+export const isScoredActivityType = (type) => {
+  const normalized = normalizeType(type);
+
+  return (
+    normalized.includes("run") ||
+    normalized.includes("ride") ||
+    normalized.includes("cycle") ||
+    normalized.includes("swim") ||
+    normalized.includes("workout") ||
+    normalized.includes("walk") ||
+    normalized.includes("hike")
+  );
+};
 
 export const calculatePoints = (activity, scoringRules) => {
   const distanceKm = Number(activity.distanceKm || 0);
-  const type = activity.type?.toLowerCase() || "";
+  const type = normalizeType(activity.type);
 
   if (type.includes("run")) {
     return round(distanceKm * scoringRules.runPerKm);

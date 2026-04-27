@@ -33,7 +33,8 @@ const postTokenRequest = async (params) => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to complete Strava token request.");
+    const details = [data.message, data.errors?.join?.(", "), data.error].filter(Boolean).join(" | ");
+    throw new Error(details || "Failed to complete Strava token request.");
   }
 
   return {
@@ -118,7 +119,8 @@ export const fetchRecentActivities = async (user) => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch Strava activities.");
+    const details = [data.message, data.errors?.join?.(", "), data.error].filter(Boolean).join(" | ");
+    throw new Error(details || "Failed to fetch Strava activities.");
   }
 
   return {

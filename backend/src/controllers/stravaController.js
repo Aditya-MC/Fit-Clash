@@ -2,40 +2,50 @@ import { Activity } from "../models/Activity.js";
 import { Group } from "../models/Group.js";
 import { User } from "../models/User.js";
 import { demoStore } from "../services/demoStore.js";
-import { calculatePoints } from "../services/scoreService.js";
+import { calculatePoints, isScoredActivityType } from "../services/scoreService.js";
 import { exchangeCodeForToken, fetchRecentActivities, getStravaAuthUrl } from "../services/stravaService.js";
 
 export const getConnectUrl = async (_req, res) => {
-  return res.json({ url: getStravaAuthUrl() });
+  try {
+    return res.json({ url: getStravaAuthUrl() });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to prepare Strava connection." });
+  }
 };
 
 export const connectStrava = async (req, res) => {
-  const { code } = req.body;
+  try {
+    const { code } = req.body;
 
-  if (!code) {
-    return res.status(400).json({ message: "Authorization code is required." });
-  }
+    if (!code) {
+      return res.status(400).json({ message: "Authorization code is required." });
+    }
 
-  const tokens = await exchangeCodeForToken(code);
+    const tokens = await exchangeCodeForToken(code);
 
-  if (demoStore.isEnabled()) {
-    demoStore.markStravaConnected(req.user._id, tokens);
+    if (demoStore.isEnabled()) {
+      demoStore.markStravaConnected(req.user._id, tokens);
+      return res.json({
+        message: "Strava connected.",
+        stravaConnected: true
+      });
+    }
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: {
+        strava: tokens
+      }
+    });
+
     return res.json({
       message: "Strava connected.",
       stravaConnected: true
     });
+  } catch (error) {
+    const message = error.message || "Failed to connect Strava.";
+    const statusCode = /authorization code|bad request|invalid/i.test(message) ? 400 : 500;
+    return res.status(statusCode).json({ message });
   }
-
-  await User.findByIdAndUpdate(req.user._id, {
-    $set: {
-      strava: tokens
-    }
-  });
-
-  return res.json({
-    message: "Strava connected.",
-    stravaConnected: true
-  });
 };
 
 export const syncActivities = async (req, res) => {
@@ -54,9 +64,10 @@ export const syncActivities = async (req, res) => {
     }
 
     const { activities: recentActivities } = await fetchRecentActivities(req.user);
+    const eligibleActivities = recentActivities.filter((activity) => isScoredActivityType(activity.type));
     let added = 0;
 
-    for (const activity of recentActivities) {
+    for (const activity of eligibleActivities) {
       const points = calculatePoints(activity, group.scoringRules);
       const created = demoStore.addActivityIfNew({
         userId: req.user._id,
@@ -70,8 +81,9 @@ export const syncActivities = async (req, res) => {
     }
 
     return res.json({
-      message: added ? "Activities synced successfully." : "No new Strava activities found.",
-      syncedActivities: added
+      message: added ? "Activities synced successfully." : "No new eligible Strava activities found.",
+      syncedActivities: added,
+      ignoredActivities: recentActivities.length - eligibleActivities.length
     });
   }
 
@@ -87,9 +99,10 @@ export const syncActivities = async (req, res) => {
   }
 
   const { activities: recentActivities, tokens } = await fetchRecentActivities(req.user);
+  const eligibleActivities = recentActivities.filter((activity) => isScoredActivityType(activity.type));
   let added = 0;
 
-  for (const activity of recentActivities) {
+  for (const activity of eligibleActivities) {
     const points = calculatePoints(activity, group.scoringRules);
 
     try {
@@ -130,7 +143,8 @@ export const syncActivities = async (req, res) => {
   await User.findByIdAndUpdate(req.user._id, { $set: updatePayload });
 
   return res.json({
-    message: added ? "Activities synced successfully." : "No new Strava activities found.",
-    syncedActivities: added
+    message: added ? "Activities synced successfully." : "No new eligible Strava activities found.",
+    syncedActivities: added,
+    ignoredActivities: recentActivities.length - eligibleActivities.length
   });
 };

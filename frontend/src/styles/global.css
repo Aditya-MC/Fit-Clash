@@ -531,10 +531,41 @@ h2 {
 
 .group-grid,
 .leaderboard-list,
-.competitor-list {
+.competitor-list,
+.activity-feed-list {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.05rem;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.activity-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.activity-row-main p {
+  margin-bottom: 0;
+}
+
+.activity-row-metrics {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--soft);
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .dashboard-page .section-header {
