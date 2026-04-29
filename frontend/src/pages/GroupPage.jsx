@@ -30,6 +30,15 @@ const formatElapsed = (seconds) => {
   return [hours, minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
 };
 
+const getDisplayedPoints = (mode, distanceKm, elapsedSeconds, scoringRules, active) => {
+  if (!active) {
+    return calculateLivePoints(mode, distanceKm, elapsedSeconds, scoringRules);
+  }
+
+  const snappedSeconds = Math.floor(elapsedSeconds / 10) * 10;
+  return calculateLivePoints(mode, distanceKm, snappedSeconds, scoringRules);
+};
+
 const calculateLivePoints = (mode, distanceKm, elapsedSeconds, scoringRules = {}) => {
   const movingTimeMinutes = elapsedSeconds / 60;
   const rules = {
@@ -154,7 +163,7 @@ export default function GroupPage() {
     setTracker((current) => ({
       ...current,
       distanceKm: Number(distanceKmRef.current.toFixed(2)),
-      points: calculateLivePoints("Run", distanceKmRef.current, elapsedSecondsRef.current, group?.scoringRules),
+      points: getDisplayedPoints("Run", distanceKmRef.current, elapsedSecondsRef.current, group?.scoringRules, current.active),
       status: "Tracking run",
       locationCount: pointsRef.current.length
     }));
@@ -189,7 +198,7 @@ export default function GroupPage() {
       setTracker((current) => ({
         ...current,
         elapsedSeconds: elapsedSecondsRef.current,
-        points: calculateLivePoints(current.mode, distanceKmRef.current, elapsedSecondsRef.current, group?.scoringRules)
+        points: getDisplayedPoints(current.mode, distanceKmRef.current, elapsedSecondsRef.current, group?.scoringRules, current.active)
       }));
     }, 1000);
 
