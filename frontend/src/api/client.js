@@ -48,5 +48,16 @@ export const api = {
       ...options,
       method: "POST",
       body: JSON.stringify(body)
+    }),
+  patch: (path, body, options = {}) =>
+    request(path, {
+      ...options,
+      method: "PATCH",
+      body: JSON.stringify(body)
+    }),
+  delete: (path, options = {}) =>
+    request(path, {
+      ...options,
+      method: "DELETE"
     })
 };

@@ -443,3 +443,129 @@ export const addManualActivity = async (req, res) => {
     pointsAwarded: points
   });
 };
+
+export const updateActivity = async (req, res) => {
+  const { groupId, activityId } = req.params;
+  const { title, type, distanceKm, movingTimeMinutes, elevationGain, startedAt } = req.body;
+
+  if (demoStore.isEnabled()) {
+    const group = demoStore.getGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found." });
+    }
+
+    const existing = demoStore
+      .listActivitiesForPlayer(groupId, req.user._id)
+      .find((activity) => activity._id === activityId);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Activity not found." });
+    }
+
+    if (existing.source === "strava") {
+      return res.status(400).json({ message: "Strava activities cannot be edited manually." });
+    }
+
+    const nextActivity = {
+      ...existing,
+      name: title?.trim?.() || existing.title,
+      title: title?.trim?.() || existing.title,
+      type: type || existing.type,
+      distanceKm: distanceKm === undefined ? Number(existing.distanceKm || 0) : Number(distanceKm || 0),
+      movingTimeMinutes:
+        movingTimeMinutes === undefined ? Number(existing.movingTimeMinutes || 0) : Number(movingTimeMinutes || 0),
+      elevationGain: elevationGain === undefined ? Number(existing.elevationGain || 0) : Number(elevationGain || 0),
+      startedAt: startedAt ? new Date(startedAt) : new Date(existing.startedAt)
+    };
+
+    const validationMessage = validateActivityForScoring(nextActivity);
+    if (validationMessage) {
+      return res.status(400).json({ message: validationMessage });
+    }
+
+    const points = calculatePoints(nextActivity, group.scoringRules);
+    demoStore.updateActivity({
+      groupId,
+      activityId,
+      userId: req.user._id,
+      updates: {
+        title: nextActivity.title,
+        type: nextActivity.type,
+        distanceKm: nextActivity.distanceKm,
+        movingTimeMinutes: nextActivity.movingTimeMinutes,
+        elevationGain: nextActivity.elevationGain,
+        startedAt: nextActivity.startedAt.toISOString()
+      },
+      points
+    });
+
+    return res.json({
+      message: "Activity updated successfully.",
+      pointsAwarded: points
+    });
+  }
+
+  const group = await Group.findById(groupId);
+  if (!group) {
+    return res.status(404).json({ message: "Group not found." });
+  }
+
+  const activity = await Activity.findOne({ _id: activityId, group: groupId, user: req.user._id });
+  if (!activity) {
+    return res.status(404).json({ message: "Activity not found." });
+  }
+
+  if (activity.source === "strava") {
+    return res.status(400).json({ message: "Strava activities cannot be edited manually." });
+  }
+
+  const nextActivity = {
+    ...activity.toObject(),
+    name: title?.trim?.() || activity.title,
+    type: type || activity.type,
+    distanceKm: distanceKm === undefined ? Number(activity.distanceKm || 0) : Number(distanceKm || 0),
+    movingTimeMinutes:
+      movingTimeMinutes === undefined ? Number(activity.movingTimeMinutes || 0) : Number(movingTimeMinutes || 0),
+    elevationGain: elevationGain === undefined ? Number(activity.elevationGain || 0) : Number(elevationGain || 0),
+    startedAt: startedAt ? new Date(startedAt) : new Date(activity.startedAt)
+  };
+
+  const validationMessage = validateActivityForScoring(nextActivity);
+  if (validationMessage) {
+    return res.status(400).json({ message: validationMessage });
+  }
+
+  activity.title = nextActivity.name;
+  activity.type = nextActivity.type;
+  activity.distanceKm = nextActivity.distanceKm;
+  activity.movingTimeMinutes = nextActivity.movingTimeMinutes;
+  activity.elevationGain = nextActivity.elevationGain;
+  activity.startedAt = nextActivity.startedAt;
+  activity.pointsAwarded = calculatePoints(nextActivity, group.scoringRules);
+  await activity.save();
+
+  return res.json({
+    message: "Activity updated successfully.",
+    pointsAwarded: activity.pointsAwarded
+  });
+};
+
+export const deleteActivity = async (req, res) => {
+  const { groupId, activityId } = req.params;
+
+  if (demoStore.isEnabled()) {
+    const deleted = demoStore.deleteActivity({ groupId, activityId, userId: req.user._id });
+    if (!deleted) {
+      return res.status(404).json({ message: "Activity not found." });
+    }
+
+    return res.json({ message: "Activity deleted successfully." });
+  }
+
+  const deleted = await Activity.findOneAndDelete({ _id: activityId, group: groupId, user: req.user._id });
+  if (!deleted) {
+    return res.status(404).json({ message: "Activity not found." });
+  }
+
+  return res.json({ message: "Activity deleted successfully." });
+};

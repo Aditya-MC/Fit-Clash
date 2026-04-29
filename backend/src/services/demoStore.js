@@ -295,5 +295,28 @@ export const demoStore = {
     }
 
     return true;
+  },
+  updateActivity: ({ groupId, activityId, userId, updates, points }) => {
+    const activity = demoState.activities.find(
+      (entry) => entry._id === activityId && entry.group === groupId && entry.user === userId
+    );
+    if (!activity) {
+      return null;
+    }
+
+    Object.assign(activity, updates, { pointsAwarded: points });
+    return clone(activity);
+  },
+  deleteActivity: ({ groupId, activityId, userId }) => {
+    const index = demoState.activities.findIndex(
+      (entry) => entry._id === activityId && entry.group === groupId && entry.user === userId
+    );
+
+    if (index === -1) {
+      return null;
+    }
+
+    const [deleted] = demoState.activities.splice(index, 1);
+    return clone(deleted);
   }
 };

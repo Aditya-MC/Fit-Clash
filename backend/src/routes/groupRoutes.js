@@ -1,5 +1,14 @@
 import express from "express";
-import { addManualActivity, createGroup, getGroupDetails, getMyGroups, getPlayerCard, joinGroup } from "../controllers/groupController.js";
+import {
+  addManualActivity,
+  createGroup,
+  deleteActivity,
+  getGroupDetails,
+  getMyGroups,
+  getPlayerCard,
+  joinGroup,
+  updateActivity
+} from "../controllers/groupController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -9,6 +18,8 @@ router.get("/", getMyGroups);
 router.post("/", createGroup);
 router.post("/join", joinGroup);
 router.post("/:groupId/activities/manual", addManualActivity);
+router.patch("/:groupId/activities/:activityId", updateActivity);
+router.delete("/:groupId/activities/:activityId", deleteActivity);
 router.get("/:groupId", getGroupDetails);
 router.get("/:groupId/players/:userId", getPlayerCard);
 

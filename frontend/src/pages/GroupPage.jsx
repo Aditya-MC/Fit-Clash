@@ -489,7 +489,7 @@ export default function GroupPage() {
         <PlayerCard player={playerCard} />
       </section>
 
-      <ActivityFeed activities={group.recentActivities} />
+      <ActivityFeed groupId={groupId} activities={group.recentActivities} onRefresh={loadGroup} />
     </div>
   );
 }
