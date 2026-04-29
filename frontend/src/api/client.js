@@ -38,7 +38,11 @@ const request = async (path, options = {}, attempt = 0) => {
 };
 
 export const api = {
-  get: (path, options) => request(path, options),
+  get: (path, options = {}) =>
+    request(path, {
+      cache: "no-store",
+      ...options
+    }),
   post: (path, body, options = {}) =>
     request(path, {
       ...options,

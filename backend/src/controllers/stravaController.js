@@ -7,6 +7,9 @@ import { exchangeCodeForToken, fetchRecentActivities, getStravaAuthUrl } from ".
 
 export const getConnectUrl = async (_req, res) => {
   try {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     return res.json({ url: getStravaAuthUrl("connect") });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to prepare Strava connection." });
