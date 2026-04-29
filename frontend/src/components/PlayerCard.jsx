@@ -41,6 +41,18 @@ export default function PlayerCard({ player }) {
           <strong>{player.activityCount}</strong>
         </article>
         <article className="metric-box">
+          <span>Active days this period</span>
+          <strong>{player.activeDays ?? 0}</strong>
+        </article>
+        <article className="metric-box">
+          <span>Consistency bonus</span>
+          <strong>{player.consistencyPoints ?? 0} pts</strong>
+        </article>
+        <article className="metric-box">
+          <span>Base activity points</span>
+          <strong>{player.basePoints ?? player.points} pts</strong>
+        </article>
+        <article className="metric-box">
           <span>KM ran this month</span>
           <strong>{player.monthlyDistanceKm ?? 0}</strong>
         </article>
@@ -51,10 +63,6 @@ export default function PlayerCard({ player }) {
         <article className="metric-box">
           <span>Highest ever ranked</span>
           <strong>#{player.highestEverRank ?? player.rank}</strong>
-        </article>
-        <article className="metric-box">
-          <span>Consistency trend</span>
-          <strong>{player.consistency.length} days</strong>
         </article>
         <article className="metric-box">
           <span>Nearby rivals</span>

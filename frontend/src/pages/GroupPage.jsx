@@ -216,6 +216,7 @@ export default function GroupPage() {
 
     const runPayload = {
       title: `In-app run ${new Date(startedAtRef.current).toLocaleDateString()}`,
+      source: "in_app",
       type: "Run",
       distanceKm: Number(distanceKmRef.current.toFixed(2)),
       movingTimeMinutes: Number((elapsedSecondsRef.current / 60).toFixed(1)),
@@ -240,7 +241,7 @@ export default function GroupPage() {
     setSyncMessage("");
 
     try {
-      const result = await api.post(`/groups/${groupId}/activities/manual`, manualForm);
+      const result = await api.post(`/groups/${groupId}/activities/manual`, { ...manualForm, source: "manual" });
       setSyncMessage(`${result.message} ${result.pointsAwarded} pts awarded.`);
       setManualForm((current) => ({
         ...current,
@@ -340,7 +341,7 @@ export default function GroupPage() {
           <div>
             <p className="eyebrow">Manual entry</p>
             <h2>Log an activity manually</h2>
-            <p className="section-subtle">Use this when Strava is unavailable. Points are still scored and added to the group.</p>
+            <p className="section-subtle">Use this when Strava is unavailable. Workouts score from duration, while runs, rides, swims, walks, and hikes score from distance.</p>
           </div>
         </div>
 

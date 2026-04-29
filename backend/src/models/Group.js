@@ -69,9 +69,34 @@ const groupSchema = new mongoose.Schema(
         type: Number,
         default: 20
       },
-      workoutFlat: {
+      walkPerKm: {
         type: Number,
-        default: 15
+        default: 4
+      },
+      hikePerKm: {
+        type: Number,
+        default: 6
+      },
+      workoutPerMinute: {
+        type: Number,
+        default: 0.5
+      },
+      consistencyWeekly: {
+        type: Object,
+        default: {
+          3: 15,
+          5: 35,
+          7: 60
+        }
+      },
+      consistencyMonthly: {
+        type: Object,
+        default: {
+          8: 30,
+          12: 60,
+          16: 100,
+          20: 150
+        }
       }
     },
     members: [memberSchema]

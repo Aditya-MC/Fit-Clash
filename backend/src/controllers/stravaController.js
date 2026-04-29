@@ -114,6 +114,7 @@ export const syncActivities = async (req, res) => {
         user: req.user._id,
         group: group._id,
         stravaActivityId: activity.id,
+        source: "strava",
         type: activity.type,
         title: activity.name,
         distanceKm: activity.distanceKm,

@@ -19,7 +19,7 @@ export default function LeaderboardTable({ leaderboard = [], onSelectPlayer, sel
             <span className="rank-chip">#{entry.rank}</span>
             <div className="leaderboard-meta">
               <strong>{entry.user.name}</strong>
-              <small>{entry.activityCount} activities logged</small>
+              <small>{entry.activityCount} activities | {entry.activeDays} active days</small>
             </div>
             <div className="leaderboard-score">
               <strong>{entry.points}</strong>

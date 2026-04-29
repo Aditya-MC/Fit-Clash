@@ -10,8 +10,8 @@ export default function ActivityFeed({ activities = [] }) {
       <div className="section-header">
         <div>
           <p className="eyebrow">Activity feed</p>
-          <h2>Recent imports</h2>
-          <p className="section-subtle">Latest scored Strava activities that were pulled into this group.</p>
+          <h2>Recent activity</h2>
+          <p className="section-subtle">Latest scored activities across Strava, manual entry, and in-app tracking.</p>
         </div>
       </div>
 
@@ -21,7 +21,7 @@ export default function ActivityFeed({ activities = [] }) {
             <div className="activity-row-main">
               <strong>{activity.title}</strong>
               <p className="muted">
-                {(activity.user?.name || "Unknown athlete")} · {activity.type} · {formatDate(activity.startedAt)}
+                {(activity.user?.name || "Unknown athlete")} | {activity.type} | {activity.sourceLabel || "Strava"} | {formatDate(activity.startedAt)}
               </p>
             </div>
             <div className="activity-row-metrics">
@@ -31,7 +31,7 @@ export default function ActivityFeed({ activities = [] }) {
             </div>
           </article>
         ))}
-        {!activities.length && <p className="muted">No synced activities yet.</p>}
+        {!activities.length && <p className="muted">No scored activities yet.</p>}
       </div>
     </section>
   );

@@ -2,8 +2,16 @@ import { Activity } from "../models/Activity.js";
 import { Group } from "../models/Group.js";
 import { User } from "../models/User.js";
 import { demoStore } from "../services/demoStore.js";
-import { calculatePoints, isScoredActivityType } from "../services/scoreService.js";
-import { getConsistencySeries, getCumulativeSeries } from "../services/scoreService.js";
+import {
+  calculateConsistencyBonus,
+  calculatePoints,
+  getActivitiesInPeriod,
+  getConsistencySeries,
+  getCumulativeSeries,
+  getScoringRules,
+  isScoredActivityType,
+  validateActivityForScoring
+} from "../services/scoreService.js";
 
 const slugify = (value) =>
   value
@@ -14,9 +22,85 @@ const slugify = (value) =>
 
 const makeInviteCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 const makeManualActivityId = () => `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const attachSourceLabel = (activity) => ({
+  ...activity,
+  source: activity.source || "strava",
+  sourceLabel:
+    activity.source === "in_app" ? "In-app run" : activity.source === "manual" ? "Manual" : "Strava"
+});
+
+const getCurrentPeriodSummary = (activities, challengeDuration, scoringRules) => {
+  const periodActivities = getActivitiesInPeriod(activities, challengeDuration);
+  const { activeDays, consistencyBonus } = calculateConsistencyBonus(activities, challengeDuration, scoringRules);
+
+  return {
+    periodActivities,
+    activeDays,
+    consistencyBonus
+  };
+};
+
+const buildLeaderboard = (members, activities, challengeDuration, scoringRules) =>
+  members
+    .map((member) => {
+      const memberId = member.user._id?.toString?.() || member.user.toString();
+      const playerActivities = activities.filter((activity) => (activity.user._id?.toString?.() || activity.user.toString()) === memberId);
+      const basePoints = playerActivities.reduce((sum, activity) => sum + Number(activity.pointsAwarded || 0), 0);
+      const { activeDays, consistencyBonus } = getCurrentPeriodSummary(playerActivities, challengeDuration, scoringRules);
+
+      return {
+        user: member.user,
+        role: member.role,
+        points: basePoints + consistencyBonus,
+        basePoints,
+        consistencyPoints: consistencyBonus,
+        activeDays,
+        activityCount: playerActivities.length,
+        recentForm: getConsistencySeries(playerActivities).slice(-7)
+      };
+    })
+    .sort((left, right) => right.points - left.points)
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
 const getMonthStart = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1);
+};
+
+const getMonthlyMetrics = (activities) => {
+  const monthStart = getMonthStart();
+  const thisMonthActivities = activities.filter((activity) => new Date(activity.startedAt) >= monthStart);
+
+  return {
+    monthlyDistanceKm: Number(
+      thisMonthActivities
+        .filter((activity) => activity.type?.toLowerCase().includes("run"))
+        .reduce((sum, activity) => sum + Number(activity.distanceKm || 0), 0)
+        .toFixed(1)
+    ),
+    monthlyWorkoutHours: Number(
+      (
+        thisMonthActivities.reduce((sum, activity) => sum + Number(activity.movingTimeMinutes || 0), 0) / 60
+      ).toFixed(1)
+    )
+  };
+};
+
+const buildGroupResponse = (group, activities) => {
+  const scoringRules = getScoringRules(group.scoringRules);
+  const leaderboard = buildLeaderboard(group.members, activities, group.challengeDuration, scoringRules);
+
+  return {
+    ...group,
+    scoringRules,
+    leaderboard,
+    recentActivities: activities
+      .slice()
+      .sort((left, right) => new Date(right.startedAt) - new Date(left.startedAt))
+      .slice(0, 12)
+      .map(attachSourceLabel)
+  };
 };
 
 export const createGroup = async (req, res) => {
@@ -97,23 +181,22 @@ export const getMyGroups = async (req, res) => {
   const groups = await Group.find({ "members.user": req.user._id })
     .populate("members.user", "name avatar totalPoints streakDays")
     .sort({ createdAt: -1 });
-  const groupIds = groups.map((group) => group._id);
-  const activities = await Activity.find({ group: { $in: groupIds }, user: req.user._id }).select("group");
 
-  const activityCountByGroup = activities.reduce((accumulator, activity) => {
-    const key = activity.group.toString();
-    accumulator.set(key, (accumulator.get(key) || 0) + 1);
-    return accumulator;
-  }, new Map());
+  const groupIds = groups.map((group) => group._id);
+  const allActivities = await Activity.find({ group: { $in: groupIds } }).sort({ startedAt: -1 });
 
   const summaries = groups.map((group) => {
-    const leaderboard = [...group.members].sort((left, right) => right.points - left.points);
-    const userRank = leaderboard.findIndex((entry) => entry.user._id.toString() === req.user._id.toString()) + 1;
+    const groupActivities = allActivities.filter((activity) => activity.group.toString() === group._id.toString());
+    const leaderboard = buildLeaderboard(group.members, groupActivities, group.challengeDuration, group.scoringRules);
+    const currentUser = leaderboard.find((entry) => entry.user._id.toString() === req.user._id.toString());
 
     return {
       ...group.toObject(),
-      userRank,
-      userActivityCount: activityCountByGroup.get(group._id.toString()) || 0
+      userRank: currentUser?.rank || 0,
+      userActivityCount: currentUser?.activityCount || 0,
+      userActiveDays: currentUser?.activeDays || 0,
+      userConsistencyPoints: currentUser?.consistencyPoints || 0,
+      leaderboard
     };
   });
 
@@ -128,33 +211,14 @@ export const getGroupDetails = async (req, res) => {
     }
 
     const populatedGroup = demoStore.populateGroup(group);
-    const activities = demoStore.listActivitiesForGroup(group._id);
-    const leaderboard = populatedGroup.members
-      .map((member) => {
-        const playerActivities = activities.filter((activity) => activity.user === member.user._id);
-        return {
-          user: member.user,
-          role: member.role,
-          points: member.points,
-          activityCount: playerActivities.length,
-          recentForm: getConsistencySeries(playerActivities).slice(-7)
-        };
-      })
-      .sort((left, right) => right.points - left.points)
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+    const activities = demoStore
+      .listActivitiesForGroup(group._id)
+      .map((activity) => ({
+        ...activity,
+        user: populatedGroup.members.find((member) => member.user._id === activity.user)?.user || null
+      }));
 
-    return res.json({
-      ...populatedGroup,
-      leaderboard,
-      recentActivities: activities
-        .slice()
-        .sort((left, right) => new Date(right.startedAt) - new Date(left.startedAt))
-        .slice(0, 12)
-        .map((activity) => ({
-          ...activity,
-          user: populatedGroup.members.find((member) => member.user._id === activity.user)?.user || null
-        }))
-    });
+    return res.json(buildGroupResponse(populatedGroup, activities));
   }
 
   const group = await Group.findById(req.params.groupId).populate("members.user", "name avatar bio totalPoints streakDays");
@@ -166,31 +230,12 @@ export const getGroupDetails = async (req, res) => {
   const memberIds = group.members.map((member) => member.user._id);
   const activities = await Activity.find({ group: group._id, user: { $in: memberIds } }).sort({ startedAt: -1 });
 
-  const leaderboard = group.members
-    .map((member) => {
-      const playerActivities = activities.filter((activity) => activity.user.toString() === member.user._id.toString());
-      return {
-        user: member.user,
-        role: member.role,
-        points: member.points,
-        activityCount: playerActivities.length,
-        recentForm: getConsistencySeries(playerActivities).slice(-7)
-      };
-    })
-    .sort((left, right) => right.points - left.points)
-    .map((entry, index) => ({
-      ...entry,
-      rank: index + 1
-    }));
+  const hydratedActivities = activities.map((activity) => ({
+    ...activity.toObject(),
+    user: group.members.find((member) => member.user._id.toString() === activity.user.toString())?.user || null
+  }));
 
-  return res.json({
-    ...group.toObject(),
-    leaderboard,
-    recentActivities: activities.slice(0, 12).map((activity) => ({
-      ...activity.toObject(),
-      user: group.members.find((member) => member.user._id.toString() === activity.user.toString())?.user || null
-    }))
-  });
+  return res.json(buildGroupResponse(group.toObject(), hydratedActivities));
 };
 
 export const getPlayerCard = async (req, res) => {
@@ -202,46 +247,40 @@ export const getPlayerCard = async (req, res) => {
       return res.status(404).json({ message: "Group not found." });
     }
 
-    const member = group.members.find((entry) => entry.user === userId);
+    const populatedGroup = demoStore.populateGroup(group);
+    const member = populatedGroup.members.find((entry) => entry.user._id === userId);
     if (!member) {
       return res.status(404).json({ message: "Player not found in group." });
     }
 
-    const activities = demoStore.listActivitiesForPlayer(groupId, userId).sort((left, right) =>
-      new Date(left.startedAt) - new Date(right.startedAt)
-    );
-    const monthStart = getMonthStart();
-    const thisMonthActivities = activities.filter((activity) => new Date(activity.startedAt) >= monthStart);
-    const monthlyDistanceKm = thisMonthActivities
-      .filter((activity) => activity.type?.toLowerCase().includes("run"))
-      .reduce((sum, activity) => sum + Number(activity.distanceKm || 0), 0);
-    const monthlyWorkoutHours =
-      thisMonthActivities.reduce((sum, activity) => sum + Number(activity.movingTimeMinutes || 0), 0) / 60;
-    const leaderboard = [...group.members].sort((left, right) => right.points - left.points);
-    const playerRank = leaderboard.findIndex((entry) => entry.user === userId) + 1;
+    const allActivities = demoStore.listActivitiesForGroup(groupId);
+    const leaderboard = buildLeaderboard(populatedGroup.members, allActivities, group.challengeDuration, group.scoringRules);
+    const playerActivities = demoStore.listActivitiesForPlayer(groupId, userId).sort((left, right) => new Date(left.startedAt) - new Date(right.startedAt));
+    const monthlyMetrics = getMonthlyMetrics(playerActivities);
+    const playerRankEntry = leaderboard.find((entry) => entry.user._id === userId);
     const nearbyCompetitors = leaderboard
-      .slice(Math.max(0, playerRank - 2), playerRank + 1)
-      .filter((entry) => entry.user !== userId)
+      .filter((entry) => entry.user._id !== userId)
+      .slice(Math.max(0, (playerRankEntry?.rank || 1) - 2), (playerRankEntry?.rank || 1) + 1)
       .map((entry) => ({
-        user: demoStore.safeUser(demoStore.getUserById(entry.user)),
+        user: entry.user,
         points: entry.points
       }));
     const primaryCompetitor = nearbyCompetitors[0] || null;
     const competitorActivities = primaryCompetitor
-      ? demoStore.listActivitiesForPlayer(groupId, primaryCompetitor.user._id).sort((left, right) =>
-          new Date(left.startedAt) - new Date(right.startedAt)
-        )
+      ? demoStore.listActivitiesForPlayer(groupId, primaryCompetitor.user._id).sort((left, right) => new Date(left.startedAt) - new Date(right.startedAt))
       : [];
 
     return res.json({
-      player: demoStore.safeUser(demoStore.getUserById(userId)),
-      points: member.points,
-      rank: playerRank,
-      highestEverRank: playerRank,
-      activityCount: activities.length,
-      monthlyDistanceKm: Number(monthlyDistanceKm.toFixed(1)),
-      monthlyWorkoutHours: Number(monthlyWorkoutHours.toFixed(1)),
-      consistency: getCumulativeSeries(activities, 14),
+      player: member.user,
+      points: playerRankEntry?.points || 0,
+      basePoints: playerRankEntry?.basePoints || 0,
+      consistencyPoints: playerRankEntry?.consistencyPoints || 0,
+      activeDays: playerRankEntry?.activeDays || 0,
+      rank: playerRankEntry?.rank || 0,
+      highestEverRank: playerRankEntry?.rank || 0,
+      activityCount: playerActivities.length,
+      ...monthlyMetrics,
+      consistency: getCumulativeSeries(playerActivities, 14),
       competitorTrend: primaryCompetitor
         ? {
             user: primaryCompetitor.user,
@@ -263,42 +302,39 @@ export const getPlayerCard = async (req, res) => {
     return res.status(404).json({ message: "Player not found in group." });
   }
 
-  const activities = await Activity.find({ group: groupId, user: userId }).sort({ startedAt: 1 });
-  const monthStart = getMonthStart();
-  const thisMonthActivities = activities.filter((activity) => new Date(activity.startedAt) >= monthStart);
-  const monthlyDistanceKm = thisMonthActivities
-    .filter((activity) => activity.type?.toLowerCase().includes("run"))
-    .reduce((sum, activity) => sum + Number(activity.distanceKm || 0), 0);
-  const monthlyWorkoutHours =
-    thisMonthActivities.reduce((sum, activity) => sum + Number(activity.movingTimeMinutes || 0), 0) / 60;
-  const leaderboard = [...group.members].sort((left, right) => right.points - left.points);
-  const playerRank = leaderboard.findIndex((entry) => entry.user._id.toString() === userId) + 1;
-  const nearbyCompetitors = await Promise.all(
-    leaderboard
-      .slice(Math.max(0, playerRank - 2), playerRank + 1)
-      .filter((entry) => entry.user._id.toString() !== userId)
-      .map(async (entry) => {
-        const profile = await User.findById(entry.user._id).select("name avatar");
-        return {
-          user: profile,
-          points: entry.points
-        };
-      })
+  const allActivities = await Activity.find({ group: groupId }).sort({ startedAt: 1 });
+  const leaderboard = buildLeaderboard(
+    group.members,
+    allActivities.map((activity) => activity.toObject()),
+    group.challengeDuration,
+    group.scoringRules
   );
+  const playerActivities = allActivities.filter((activity) => activity.user.toString() === userId);
+  const monthlyMetrics = getMonthlyMetrics(playerActivities);
+  const playerRankEntry = leaderboard.find((entry) => entry.user._id.toString() === userId);
+  const nearbyCompetitors = leaderboard
+    .filter((entry) => entry.user._id.toString() !== userId)
+    .slice(Math.max(0, (playerRankEntry?.rank || 1) - 2), (playerRankEntry?.rank || 1) + 1)
+    .map((entry) => ({
+      user: entry.user,
+      points: entry.points
+    }));
   const primaryCompetitor = nearbyCompetitors[0] || null;
   const competitorActivities = primaryCompetitor
-    ? await Activity.find({ group: groupId, user: primaryCompetitor.user._id }).sort({ startedAt: 1 })
+    ? allActivities.filter((activity) => activity.user.toString() === primaryCompetitor.user._id.toString())
     : [];
 
   return res.json({
     player: member.user,
-    points: member.points,
-    rank: playerRank,
-    highestEverRank: playerRank,
-    activityCount: activities.length,
-    monthlyDistanceKm: Number(monthlyDistanceKm.toFixed(1)),
-    monthlyWorkoutHours: Number(monthlyWorkoutHours.toFixed(1)),
-    consistency: getCumulativeSeries(activities, 14),
+    points: playerRankEntry?.points || 0,
+    basePoints: playerRankEntry?.basePoints || 0,
+    consistencyPoints: playerRankEntry?.consistencyPoints || 0,
+    activeDays: playerRankEntry?.activeDays || 0,
+    rank: playerRankEntry?.rank || 0,
+    highestEverRank: playerRankEntry?.rank || 0,
+    activityCount: playerActivities.length,
+    ...monthlyMetrics,
+    consistency: getCumulativeSeries(playerActivities, 14),
     competitorTrend: primaryCompetitor
       ? {
           user: primaryCompetitor.user,
@@ -311,7 +347,7 @@ export const getPlayerCard = async (req, res) => {
 
 export const addManualActivity = async (req, res) => {
   const { groupId } = req.params;
-  const { title, type, distanceKm, movingTimeMinutes, elevationGain, startedAt } = req.body;
+  const { title, type, distanceKm, movingTimeMinutes, elevationGain, startedAt, source = "manual" } = req.body;
 
   if (!title || !type || !startedAt) {
     return res.status(400).json({ message: "Title, activity type, and date are required." });
@@ -319,6 +355,10 @@ export const addManualActivity = async (req, res) => {
 
   if (!isScoredActivityType(type)) {
     return res.status(400).json({ message: "This activity type is not supported for scoring." });
+  }
+
+  if (!["manual", "in_app"].includes(source)) {
+    return res.status(400).json({ message: "Unsupported activity source." });
   }
 
   const activityPayload = {
@@ -333,6 +373,11 @@ export const addManualActivity = async (req, res) => {
 
   if (Number.isNaN(activityPayload.startedAt.getTime())) {
     return res.status(400).json({ message: "A valid activity date is required." });
+  }
+
+  const validationMessage = validateActivityForScoring(activityPayload);
+  if (validationMessage) {
+    return res.status(400).json({ message: validationMessage });
   }
 
   if (demoStore.isEnabled()) {
@@ -353,11 +398,11 @@ export const addManualActivity = async (req, res) => {
       groupId,
       activity: activityPayload,
       points,
-      source: "manual"
+      source
     });
 
     return res.status(201).json({
-      message: "Manual activity added successfully.",
+      message: source === "in_app" ? "In-app run saved successfully." : "Manual activity added successfully.",
       pointsAwarded: points
     });
   }
@@ -379,7 +424,7 @@ export const addManualActivity = async (req, res) => {
     user: req.user._id,
     group: group._id,
     stravaActivityId: activityPayload.id,
-    source: "manual",
+    source,
     type: activityPayload.type,
     title: activityPayload.name,
     distanceKm: activityPayload.distanceKm,
@@ -394,7 +439,7 @@ export const addManualActivity = async (req, res) => {
   await User.findByIdAndUpdate(req.user._id, { $set: { totalPoints: member.points } });
 
   return res.status(201).json({
-    message: "Manual activity added successfully.",
+    message: source === "in_app" ? "In-app run saved successfully." : "Manual activity added successfully.",
     pointsAwarded: points
   });
 };
