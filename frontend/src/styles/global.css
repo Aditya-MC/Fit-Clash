@@ -634,6 +634,21 @@ h2 {
   margin-top: 0.2rem;
 }
 
+.manual-entry-card {
+  padding: 1.2rem 1.25rem;
+}
+
+.manual-entry-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.95rem;
+  margin-top: 1rem;
+}
+
+.manual-entry-form button {
+  align-self: end;
+}
+
 .dashboard-join-card .form-submit-bottom,
 .dashboard-create-card .primary-button {
   align-self: center;
@@ -942,7 +957,8 @@ h2 {
   .two-column,
   .metrics-grid,
   .hero-stat-panel,
-  .overview-strip {
+  .overview-strip,
+  .manual-entry-form {
     grid-template-columns: 1fr;
   }
 

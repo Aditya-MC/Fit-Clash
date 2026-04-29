@@ -2,6 +2,7 @@ import { Activity } from "../models/Activity.js";
 import { Group } from "../models/Group.js";
 import { User } from "../models/User.js";
 import { demoStore } from "../services/demoStore.js";
+import { calculatePoints, isScoredActivityType } from "../services/scoreService.js";
 import { getConsistencySeries, getCumulativeSeries } from "../services/scoreService.js";
 
 const slugify = (value) =>
@@ -12,6 +13,7 @@ const slugify = (value) =>
     .replace(/(^-|-$)/g, "");
 
 const makeInviteCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
+const makeManualActivityId = () => `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const getMonthStart = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -304,5 +306,95 @@ export const getPlayerCard = async (req, res) => {
         }
       : null,
     nearbyCompetitors
+  });
+};
+
+export const addManualActivity = async (req, res) => {
+  const { groupId } = req.params;
+  const { title, type, distanceKm, movingTimeMinutes, elevationGain, startedAt } = req.body;
+
+  if (!title || !type || !startedAt) {
+    return res.status(400).json({ message: "Title, activity type, and date are required." });
+  }
+
+  if (!isScoredActivityType(type)) {
+    return res.status(400).json({ message: "This activity type is not supported for scoring." });
+  }
+
+  const activityPayload = {
+    id: makeManualActivityId(),
+    name: title.trim(),
+    type,
+    distanceKm: Number(distanceKm || 0),
+    movingTimeMinutes: Number(movingTimeMinutes || 0),
+    elevationGain: Number(elevationGain || 0),
+    startedAt: new Date(startedAt)
+  };
+
+  if (Number.isNaN(activityPayload.startedAt.getTime())) {
+    return res.status(400).json({ message: "A valid activity date is required." });
+  }
+
+  if (demoStore.isEnabled()) {
+    const group = demoStore.getGroupById(groupId);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found." });
+    }
+
+    const isMember = group.members.some((member) => member.user === req.user._id);
+    if (!isMember) {
+      return res.status(403).json({ message: "Join the group before adding activities." });
+    }
+
+    const points = calculatePoints(activityPayload, group.scoringRules);
+    demoStore.addActivityIfNew({
+      userId: req.user._id,
+      groupId,
+      activity: activityPayload,
+      points,
+      source: "manual"
+    });
+
+    return res.status(201).json({
+      message: "Manual activity added successfully.",
+      pointsAwarded: points
+    });
+  }
+
+  const group = await Group.findById(groupId);
+
+  if (!group) {
+    return res.status(404).json({ message: "Group not found." });
+  }
+
+  const member = group.members.find((entry) => entry.user.toString() === req.user._id.toString());
+  if (!member) {
+    return res.status(403).json({ message: "Join the group before adding activities." });
+  }
+
+  const points = calculatePoints(activityPayload, group.scoringRules);
+
+  await Activity.create({
+    user: req.user._id,
+    group: group._id,
+    stravaActivityId: activityPayload.id,
+    source: "manual",
+    type: activityPayload.type,
+    title: activityPayload.name,
+    distanceKm: activityPayload.distanceKm,
+    movingTimeMinutes: activityPayload.movingTimeMinutes,
+    elevationGain: activityPayload.elevationGain,
+    pointsAwarded: points,
+    startedAt: activityPayload.startedAt
+  });
+
+  member.points += points;
+  await group.save();
+  await User.findByIdAndUpdate(req.user._id, { $set: { totalPoints: member.points } });
+
+  return res.status(201).json({
+    message: "Manual activity added successfully.",
+    pointsAwarded: points
   });
 };

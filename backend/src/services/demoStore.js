@@ -246,7 +246,7 @@ export const demoStore = {
       user.strava = strava;
     }
   },
-  addActivityIfNew: ({ userId, groupId, activity, points }) => {
+  addActivityIfNew: ({ userId, groupId, activity, points, source = "strava" }) => {
     const duplicate = demoState.activities.find(
       (entry) => entry.group === groupId && entry.user === userId && entry.stravaActivityId === activity.id
     );
@@ -259,6 +259,7 @@ export const demoStore = {
       user: userId,
       group: groupId,
       stravaActivityId: activity.id,
+      source,
       type: activity.type,
       title: activity.name,
       distanceKm: activity.distanceKm,

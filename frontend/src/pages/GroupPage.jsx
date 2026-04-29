@@ -12,6 +12,14 @@ export default function GroupPage() {
   const [playerCard, setPlayerCard] = useState(null);
   const [error, setError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
+  const [manualForm, setManualForm] = useState({
+    title: "",
+    type: "Run",
+    distanceKm: "",
+    movingTimeMinutes: "",
+    elevationGain: "",
+    startedAt: new Date().toISOString().slice(0, 10)
+  });
 
   const loadPlayer = async (userId) => {
     try {
@@ -61,6 +69,27 @@ export default function GroupPage() {
     }
   };
 
+  const handleManualSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSyncMessage("");
+
+    try {
+      const result = await api.post(`/groups/${groupId}/activities/manual`, manualForm);
+      setSyncMessage(`${result.message} ${result.pointsAwarded} pts awarded.`);
+      setManualForm((current) => ({
+        ...current,
+        title: "",
+        distanceKm: "",
+        movingTimeMinutes: "",
+        elevationGain: ""
+      }));
+      await loadGroup();
+    } catch (submitError) {
+      setError(submitError.message);
+    }
+  };
+
   if (!group) {
     return <div className="center-screen">Loading group...</div>;
   }
@@ -101,6 +130,86 @@ export default function GroupPage() {
           <span>Top score</span>
           <strong>{group.leaderboard?.[0]?.points || 0} pts</strong>
         </article>
+      </section>
+
+      <section className="card manual-entry-card">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Manual entry</p>
+            <h2>Log an activity manually</h2>
+            <p className="section-subtle">Use this when Strava is unavailable. Points are still scored and added to the group.</p>
+          </div>
+        </div>
+
+        <form className="manual-entry-form" onSubmit={handleManualSubmit}>
+          <label>
+            Activity title
+            <input
+              value={manualForm.title}
+              onChange={(event) => setManualForm({ ...manualForm, title: event.target.value })}
+              required
+            />
+          </label>
+
+          <label>
+            Activity type
+            <select value={manualForm.type} onChange={(event) => setManualForm({ ...manualForm, type: event.target.value })}>
+              <option>Run</option>
+              <option>Ride</option>
+              <option>Swim</option>
+              <option>Workout</option>
+              <option>Walk</option>
+              <option>Hike</option>
+            </select>
+          </label>
+
+          <label>
+            Distance (km)
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={manualForm.distanceKm}
+              onChange={(event) => setManualForm({ ...manualForm, distanceKm: event.target.value })}
+            />
+          </label>
+
+          <label>
+            Duration (minutes)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={manualForm.movingTimeMinutes}
+              onChange={(event) => setManualForm({ ...manualForm, movingTimeMinutes: event.target.value })}
+            />
+          </label>
+
+          <label>
+            Elevation gain (m)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={manualForm.elevationGain}
+              onChange={(event) => setManualForm({ ...manualForm, elevationGain: event.target.value })}
+            />
+          </label>
+
+          <label>
+            Date
+            <input
+              type="date"
+              value={manualForm.startedAt}
+              onChange={(event) => setManualForm({ ...manualForm, startedAt: event.target.value })}
+              required
+            />
+          </label>
+
+          <button className="primary-button" type="submit">
+            Add manual activity
+          </button>
+        </form>
       </section>
 
       <Podium leaderboard={group.leaderboard} />
