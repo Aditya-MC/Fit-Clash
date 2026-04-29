@@ -32,12 +32,12 @@ export function AuthProvider({ children }) {
 
   const login = async (payload, mode = "login") => {
     const endpoint = mode === "register" ? "/auth/register" : "/auth/login";
-    const data = await api.post(endpoint, payload);
+    const data = await api.post(endpoint, payload, { includeAuth: false });
     applyAuthPayload(data);
   };
 
   const loginWithStrava = async (code) => {
-    const data = await api.post("/auth/strava", { code });
+    const data = await api.post("/auth/strava", { code }, { includeAuth: false });
     applyAuthPayload(data);
   };
 

@@ -3,16 +3,19 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const request = async (path, options = {}, attempt = 0) => {
   const token = localStorage.getItem("fitclash-token");
+  const includeAuth = options.includeAuth !== false;
+  const headers = {
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(includeAuth && token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers
+  };
+  delete options.includeAuth;
 
   let response;
 
   try {
     response = await fetch(`${API_URL}${path}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers
-      },
+      headers,
       ...options
     });
   } catch (error) {
@@ -35,9 +38,10 @@ const request = async (path, options = {}, attempt = 0) => {
 };
 
 export const api = {
-  get: (path) => request(path),
-  post: (path, body) =>
+  get: (path, options) => request(path, options),
+  post: (path, body, options = {}) =>
     request(path, {
+      ...options,
       method: "POST",
       body: JSON.stringify(body)
     })

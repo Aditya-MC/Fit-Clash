@@ -28,7 +28,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const result = await api.get("/auth/strava/url");
+      const result = await api.get("/auth/strava/url", { includeAuth: false });
       sessionStorage.setItem("fitclash-strava-intent", "login");
       window.location.href = result.url;
     } catch (stravaError) {
