@@ -79,7 +79,7 @@ const groupSchema = new mongoose.Schema(
       },
       workoutPerMinute: {
         type: Number,
-        default: 0.5
+        default: 1 / 6
       },
       consistencyWeekly: {
         type: Object,

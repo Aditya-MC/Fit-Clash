@@ -642,6 +642,10 @@ h2 {
   padding: 1.2rem 1.25rem;
 }
 
+.tracker-mode-row {
+  margin-top: 1rem;
+}
+
 .run-tracker-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -653,6 +657,18 @@ h2 {
   display: flex;
   gap: 0.8rem;
   margin-top: 1rem;
+}
+
+.activity-feed-card {
+  padding: 1.25rem 1.35rem;
+}
+
+.activity-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.95rem;
+  margin-top: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .manual-entry-form {
@@ -976,6 +992,7 @@ h2 {
   .hero-stat-panel,
   .overview-strip,
   .run-tracker-grid,
+  .activity-filter-row,
   .manual-entry-form {
     grid-template-columns: 1fr;
   }

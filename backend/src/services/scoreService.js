@@ -9,7 +9,7 @@ const DEFAULT_SCORING_RULES = {
   swimPerKm: 20,
   walkPerKm: 4,
   hikePerKm: 6,
-  workoutPerMinute: 0.5,
+  workoutPerMinute: 1 / 6,
   consistencyWeekly: {
     3: 15,
     5: 35,
@@ -26,6 +26,10 @@ const DEFAULT_SCORING_RULES = {
 export const getScoringRules = (rules = {}) => ({
   ...DEFAULT_SCORING_RULES,
   ...rules,
+  workoutPerMinute:
+    rules.workoutPerMinute === undefined || Number(rules.workoutPerMinute) === 0.5
+      ? DEFAULT_SCORING_RULES.workoutPerMinute
+      : Number(rules.workoutPerMinute),
   consistencyWeekly: {
     ...DEFAULT_SCORING_RULES.consistencyWeekly,
     ...(rules.consistencyWeekly || {})
@@ -45,12 +49,17 @@ export const isScoredActivityType = (type) => {
     normalized.includes("cycle") ||
     normalized.includes("swim") ||
     normalized.includes("workout") ||
+    normalized.includes("weight") ||
+    normalized.includes("strength") ||
     normalized.includes("walk") ||
     normalized.includes("hike")
   );
 };
 
-export const isWorkoutType = (type) => normalizeType(type).includes("workout");
+export const isWorkoutType = (type) => {
+  const normalized = normalizeType(type);
+  return normalized.includes("workout") || normalized.includes("weight") || normalized.includes("strength");
+};
 
 export const validateActivityForScoring = (activity) => {
   const type = normalizeType(activity.type);
@@ -71,7 +80,7 @@ export const validateActivityForScoring = (activity) => {
     }
   }
 
-  if (type.includes("workout") && movingTimeMinutes <= 0) {
+  if (isWorkoutType(type) && movingTimeMinutes <= 0) {
     return "Workouts require duration.";
   }
 

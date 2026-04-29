@@ -77,7 +77,7 @@ const seedDemoData = async () => {
       swimPerKm: 20,
       walkPerKm: 4,
       hikePerKm: 6,
-      workoutPerMinute: 0.5,
+      workoutPerMinute: 1 / 6,
       consistencyWeekly: { 3: 15, 5: 35, 7: 60 },
       consistencyMonthly: { 8: 30, 12: 60, 16: 100, 20: 150 }
     },
@@ -231,7 +231,7 @@ export const demoStore = {
         swimPerKm: 20,
         walkPerKm: 4,
         hikePerKm: 6,
-        workoutPerMinute: 0.5,
+        workoutPerMinute: 1 / 6,
         consistencyWeekly: { 3: 15, 5: 35, 7: 60 },
         consistencyMonthly: { 8: 30, 12: 60, 16: 100, 20: 150 }
       },

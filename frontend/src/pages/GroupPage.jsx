@@ -30,6 +30,32 @@ const formatElapsed = (seconds) => {
   return [hours, minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
 };
 
+const calculateLivePoints = (mode, distanceKm, elapsedSeconds, scoringRules = {}) => {
+  const movingTimeMinutes = elapsedSeconds / 60;
+  const rules = {
+    runPerKm: 12,
+    workoutPerMinute: 1 / 6,
+    ...scoringRules
+  };
+
+  if (mode === "Run") {
+    return Math.round(distanceKm * Number(rules.runPerKm || 12));
+  }
+
+  return Math.round(movingTimeMinutes * Number(rules.workoutPerMinute || 1 / 6));
+};
+
+const createDefaultTracker = () => ({
+  mode: "Run",
+  active: false,
+  elapsedSeconds: 0,
+  distanceKm: 0,
+  points: 0,
+  status: "Idle",
+  startedAt: "",
+  locationCount: 0
+});
+
 export default function GroupPage() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
@@ -44,14 +70,7 @@ export default function GroupPage() {
     elevationGain: "",
     startedAt: new Date().toISOString().slice(0, 10)
   });
-  const [tracker, setTracker] = useState({
-    active: false,
-    elapsedSeconds: 0,
-    distanceKm: 0,
-    status: "Idle",
-    startedAt: "",
-    locationCount: 0
-  });
+  const [tracker, setTracker] = useState(createDefaultTracker());
   const watchIdRef = useRef(null);
   const timerRef = useRef(null);
   const startedAtRef = useRef(null);
@@ -98,29 +117,7 @@ export default function GroupPage() {
     []
   );
 
-  const handleSync = async () => {
-    setSyncMessage("");
-
-    try {
-      const result = await api.post("/strava/sync", { groupId });
-      setSyncMessage(result.message);
-      loadGroup();
-    } catch (syncError) {
-      setError(syncError.message);
-    }
-  };
-
-  const handleConnectStrava = async () => {
-    try {
-      const result = await api.get("/strava/connect-url");
-      sessionStorage.setItem("fitclash-strava-intent", "connect");
-      window.location.href = result.url;
-    } catch (connectError) {
-      setError(connectError.message);
-    }
-  };
-
-  const resetTracker = () => {
+  const resetTracker = (nextMode = tracker.mode) => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -136,12 +133,8 @@ export default function GroupPage() {
     distanceKmRef.current = 0;
     pointsRef.current = [];
     setTracker({
-      active: false,
-      elapsedSeconds: 0,
-      distanceKm: 0,
-      status: "Idle",
-      startedAt: "",
-      locationCount: 0
+      ...createDefaultTracker(),
+      mode: nextMode
     });
   };
 
@@ -161,77 +154,116 @@ export default function GroupPage() {
     setTracker((current) => ({
       ...current,
       distanceKm: Number(distanceKmRef.current.toFixed(2)),
-      status: "Tracking",
+      points: calculateLivePoints("Run", distanceKmRef.current, elapsedSecondsRef.current, group?.scoringRules),
+      status: "Tracking run",
       locationCount: pointsRef.current.length
     }));
   };
 
-  const handleStartRun = () => {
+  const handleStartTracker = () => {
     setError("");
     setSyncMessage("");
 
-    if (!navigator.geolocation) {
+    if (tracker.mode === "Run" && !navigator.geolocation) {
       setError("Geolocation is not supported on this device.");
       return;
     }
 
-    resetTracker();
+    resetTracker(tracker.mode);
 
     const startedAt = new Date();
     startedAtRef.current = startedAt;
-    setTracker({
+    setTracker((current) => ({
+      ...current,
       active: true,
       elapsedSeconds: 0,
       distanceKm: 0,
-      status: "Locating GPS...",
+      points: 0,
       startedAt: startedAt.toISOString(),
-      locationCount: 0
-    });
+      status: current.mode === "Run" ? "Locating GPS..." : "Tracking timer"
+    }));
 
     timerRef.current = setInterval(() => {
       elapsedSecondsRef.current += 1;
+
       setTracker((current) => ({
         ...current,
-        elapsedSeconds: elapsedSecondsRef.current
+        elapsedSeconds: elapsedSecondsRef.current,
+        points: calculateLivePoints(current.mode, distanceKmRef.current, elapsedSecondsRef.current, group?.scoringRules)
       }));
     }, 1000);
 
-    watchIdRef.current = navigator.geolocation.watchPosition(handleRunPosition, (positionError) => {
-      setError(positionError.message || "Unable to read location.");
-      setTracker((current) => ({
-        ...current,
-        status: "Location error"
-      }));
-    }, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 15000
-    });
+    if (tracker.mode === "Run") {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        handleRunPosition,
+        (positionError) => {
+          setError(positionError.message || "Unable to read location.");
+          setTracker((current) => ({
+            ...current,
+            status: "Location error"
+          }));
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 15000
+        }
+      );
+    }
   };
 
-  const handleStopRun = async () => {
+  const handleStopTracker = async () => {
     if (!tracker.active || !startedAtRef.current) {
       return;
     }
 
-    const runPayload = {
-      title: `In-app run ${new Date(startedAtRef.current).toLocaleDateString()}`,
+    const isRun = tracker.mode === "Run";
+    const payload = {
+      title: `${tracker.mode} ${new Date(startedAtRef.current).toLocaleDateString()}`,
       source: "in_app",
-      type: "Run",
-      distanceKm: Number(distanceKmRef.current.toFixed(2)),
+      type: isRun ? "Run" : "Weight Training",
+      distanceKm: isRun ? Number(distanceKmRef.current.toFixed(2)) : 0,
       movingTimeMinutes: Number((elapsedSecondsRef.current / 60).toFixed(1)),
       elevationGain: 0,
       startedAt: startedAtRef.current.toISOString()
     };
 
-    resetTracker();
+    resetTracker(tracker.mode);
 
     try {
-      const result = await api.post(`/groups/${groupId}/activities/manual`, runPayload);
+      const result = await api.post(`/groups/${groupId}/activities/manual`, payload);
       setSyncMessage(`${result.message} ${result.pointsAwarded} pts awarded.`);
       await loadGroup();
     } catch (stopError) {
       setError(stopError.message);
+    }
+  };
+
+  const handleCancelTracker = () => {
+    setError("");
+    setSyncMessage("");
+    resetTracker(tracker.mode);
+  };
+
+  const handleSync = async () => {
+    setSyncMessage("");
+
+    try {
+      const result = await api.post("/strava/sync", { groupId });
+      setSyncMessage(result.message);
+      await loadGroup();
+    } catch (syncError) {
+      setError(syncError.message);
+    }
+  };
+
+  const handleConnectStrava = async () => {
+    try {
+      const result = await api.get("/strava/connect-url");
+      sessionStorage.setItem("fitclash-strava-intent", "connect");
+      window.location.href = result.url;
+    } catch (connectError) {
+      setError(connectError.message);
     }
   };
 
@@ -241,7 +273,10 @@ export default function GroupPage() {
     setSyncMessage("");
 
     try {
-      const result = await api.post(`/groups/${groupId}/activities/manual`, { ...manualForm, source: "manual" });
+      const result = await api.post(`/groups/${groupId}/activities/manual`, {
+        ...manualForm,
+        source: "manual"
+      });
       setSyncMessage(`${result.message} ${result.pointsAwarded} pts awarded.`);
       setManualForm((current) => ({
         ...current,
@@ -302,9 +337,23 @@ export default function GroupPage() {
         <div className="section-header">
           <div>
             <p className="eyebrow">Live tracker</p>
-            <h2>Track a run inside the app</h2>
-            <p className="section-subtle">Best effort GPS tracking while this page stays open. Less accurate than Strava, but usable for quick runs.</p>
+            <h2>Track a run or weight training session</h2>
+            <p className="section-subtle">Runs use foreground GPS. Weight training uses a live duration timer and updates points continuously while the session runs.</p>
           </div>
+        </div>
+
+        <div className="tracker-mode-row">
+          <label>
+            Session type
+            <select
+              value={tracker.mode}
+              onChange={(event) => setTracker((current) => ({ ...current, mode: event.target.value }))}
+              disabled={tracker.active}
+            >
+              <option>Run</option>
+              <option>Weight Training</option>
+            </select>
+          </label>
         </div>
 
         <div className="run-tracker-grid">
@@ -317,21 +366,24 @@ export default function GroupPage() {
             <strong>{formatElapsed(tracker.elapsedSeconds)}</strong>
           </article>
           <article className="metric-box">
-            <span>Distance</span>
-            <strong>{tracker.distanceKm.toFixed(2)} km</strong>
+            <span>{tracker.mode === "Run" ? "Distance" : "Mode"}</span>
+            <strong>{tracker.mode === "Run" ? `${tracker.distanceKm.toFixed(2)} km` : "Timer only"}</strong>
           </article>
           <article className="metric-box">
-            <span>GPS points</span>
-            <strong>{tracker.locationCount}</strong>
+            <span>Live points</span>
+            <strong>{tracker.points} pts</strong>
           </article>
         </div>
 
         <div className="run-tracker-actions">
-          <button className="ghost-button" onClick={handleStartRun} disabled={tracker.active} type="button">
-            Start run
+          <button className="ghost-button" onClick={handleStartTracker} disabled={tracker.active} type="button">
+            Start
           </button>
-          <button className="primary-button" onClick={handleStopRun} disabled={!tracker.active} type="button">
-            Stop and save
+          <button className="primary-button" onClick={handleStopTracker} disabled={!tracker.active} type="button">
+            Finish and save
+          </button>
+          <button className="ghost-button" onClick={handleCancelTracker} disabled={!tracker.active} type="button">
+            Cancel
           </button>
         </div>
       </section>
@@ -341,7 +393,7 @@ export default function GroupPage() {
           <div>
             <p className="eyebrow">Manual entry</p>
             <h2>Log an activity manually</h2>
-            <p className="section-subtle">Use this when Strava is unavailable. Workouts score from duration, while runs, rides, swims, walks, and hikes score from distance.</p>
+            <p className="section-subtle">Use this when Strava is unavailable. Weight training and workouts score from duration, while runs, rides, swims, walks, and hikes score from distance.</p>
           </div>
         </div>
 
@@ -361,6 +413,7 @@ export default function GroupPage() {
               <option>Run</option>
               <option>Ride</option>
               <option>Swim</option>
+              <option>Weight Training</option>
               <option>Workout</option>
               <option>Walk</option>
               <option>Hike</option>
