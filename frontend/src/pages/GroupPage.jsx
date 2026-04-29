@@ -1,10 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
 import ActivityFeed from "../components/ActivityFeed.jsx";
 import LeaderboardTable from "../components/LeaderboardTable.jsx";
 import PlayerCard from "../components/PlayerCard.jsx";
 import Podium from "../components/Podium.jsx";
+
+const toRadians = (value) => (value * Math.PI) / 180;
+
+const getDistanceKm = (from, to) => {
+  const earthRadiusKm = 6371;
+  const latitudeDelta = toRadians(to.latitude - from.latitude);
+  const longitudeDelta = toRadians(to.longitude - from.longitude);
+  const fromLatitude = toRadians(from.latitude);
+  const toLatitude = toRadians(to.latitude);
+
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};
+
+const formatElapsed = (seconds) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  return [hours, minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
+};
 
 export default function GroupPage() {
   const { groupId } = useParams();
@@ -20,6 +44,20 @@ export default function GroupPage() {
     elevationGain: "",
     startedAt: new Date().toISOString().slice(0, 10)
   });
+  const [tracker, setTracker] = useState({
+    active: false,
+    elapsedSeconds: 0,
+    distanceKm: 0,
+    status: "Idle",
+    startedAt: "",
+    locationCount: 0
+  });
+  const watchIdRef = useRef(null);
+  const timerRef = useRef(null);
+  const startedAtRef = useRef(null);
+  const elapsedSecondsRef = useRef(0);
+  const distanceKmRef = useRef(0);
+  const pointsRef = useRef([]);
 
   const loadPlayer = async (userId) => {
     try {
@@ -47,6 +85,19 @@ export default function GroupPage() {
     loadGroup();
   }, [groupId]);
 
+  useEffect(
+    () => () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    },
+    []
+  );
+
   const handleSync = async () => {
     setSyncMessage("");
 
@@ -66,6 +117,120 @@ export default function GroupPage() {
       window.location.href = result.url;
     } catch (connectError) {
       setError(connectError.message);
+    }
+  };
+
+  const resetTracker = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    startedAtRef.current = null;
+    elapsedSecondsRef.current = 0;
+    distanceKmRef.current = 0;
+    pointsRef.current = [];
+    setTracker({
+      active: false,
+      elapsedSeconds: 0,
+      distanceKm: 0,
+      status: "Idle",
+      startedAt: "",
+      locationCount: 0
+    });
+  };
+
+  const handleRunPosition = (position) => {
+    const nextPoint = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    };
+    const previousPoint = pointsRef.current[pointsRef.current.length - 1];
+
+    if (previousPoint) {
+      distanceKmRef.current += getDistanceKm(previousPoint, nextPoint);
+    }
+
+    pointsRef.current = [...pointsRef.current, nextPoint];
+
+    setTracker((current) => ({
+      ...current,
+      distanceKm: Number(distanceKmRef.current.toFixed(2)),
+      status: "Tracking",
+      locationCount: pointsRef.current.length
+    }));
+  };
+
+  const handleStartRun = () => {
+    setError("");
+    setSyncMessage("");
+
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported on this device.");
+      return;
+    }
+
+    resetTracker();
+
+    const startedAt = new Date();
+    startedAtRef.current = startedAt;
+    setTracker({
+      active: true,
+      elapsedSeconds: 0,
+      distanceKm: 0,
+      status: "Locating GPS...",
+      startedAt: startedAt.toISOString(),
+      locationCount: 0
+    });
+
+    timerRef.current = setInterval(() => {
+      elapsedSecondsRef.current += 1;
+      setTracker((current) => ({
+        ...current,
+        elapsedSeconds: elapsedSecondsRef.current
+      }));
+    }, 1000);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(handleRunPosition, (positionError) => {
+      setError(positionError.message || "Unable to read location.");
+      setTracker((current) => ({
+        ...current,
+        status: "Location error"
+      }));
+    }, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000
+    });
+  };
+
+  const handleStopRun = async () => {
+    if (!tracker.active || !startedAtRef.current) {
+      return;
+    }
+
+    const runPayload = {
+      title: `In-app run ${new Date(startedAtRef.current).toLocaleDateString()}`,
+      type: "Run",
+      distanceKm: Number(distanceKmRef.current.toFixed(2)),
+      movingTimeMinutes: Number((elapsedSecondsRef.current / 60).toFixed(1)),
+      elevationGain: 0,
+      startedAt: startedAtRef.current.toISOString()
+    };
+
+    resetTracker();
+
+    try {
+      const result = await api.post(`/groups/${groupId}/activities/manual`, runPayload);
+      setSyncMessage(`${result.message} ${result.pointsAwarded} pts awarded.`);
+      await loadGroup();
+    } catch (stopError) {
+      setError(stopError.message);
     }
   };
 
@@ -130,6 +295,44 @@ export default function GroupPage() {
           <span>Top score</span>
           <strong>{group.leaderboard?.[0]?.points || 0} pts</strong>
         </article>
+      </section>
+
+      <section className="card run-tracker-card">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Live tracker</p>
+            <h2>Track a run inside the app</h2>
+            <p className="section-subtle">Best effort GPS tracking while this page stays open. Less accurate than Strava, but usable for quick runs.</p>
+          </div>
+        </div>
+
+        <div className="run-tracker-grid">
+          <article className="metric-box">
+            <span>Status</span>
+            <strong>{tracker.status}</strong>
+          </article>
+          <article className="metric-box">
+            <span>Elapsed</span>
+            <strong>{formatElapsed(tracker.elapsedSeconds)}</strong>
+          </article>
+          <article className="metric-box">
+            <span>Distance</span>
+            <strong>{tracker.distanceKm.toFixed(2)} km</strong>
+          </article>
+          <article className="metric-box">
+            <span>GPS points</span>
+            <strong>{tracker.locationCount}</strong>
+          </article>
+        </div>
+
+        <div className="run-tracker-actions">
+          <button className="ghost-button" onClick={handleStartRun} disabled={tracker.active} type="button">
+            Start run
+          </button>
+          <button className="primary-button" onClick={handleStopRun} disabled={!tracker.active} type="button">
+            Stop and save
+          </button>
+        </div>
       </section>
 
       <section className="card manual-entry-card">

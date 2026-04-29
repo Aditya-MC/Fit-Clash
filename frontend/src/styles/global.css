@@ -638,6 +638,23 @@ h2 {
   padding: 1.2rem 1.25rem;
 }
 
+.run-tracker-card {
+  padding: 1.2rem 1.25rem;
+}
+
+.run-tracker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.run-tracker-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
 .manual-entry-form {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -958,6 +975,7 @@ h2 {
   .metrics-grid,
   .hero-stat-panel,
   .overview-strip,
+  .run-tracker-grid,
   .manual-entry-form {
     grid-template-columns: 1fr;
   }
