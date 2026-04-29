@@ -42,6 +42,7 @@ export const connectStrava = async (req, res) => {
       stravaConnected: true
     });
   } catch (error) {
+    console.error("Strava connect failed", error);
     const message = error.message || "Failed to connect Strava.";
     const statusCode = /authorization code|bad request|invalid/i.test(message) ? 400 : 500;
     return res.status(statusCode).json({ message });

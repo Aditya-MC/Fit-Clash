@@ -30,10 +30,27 @@ const postTokenRequest = async (params) => {
     })
   });
 
-  const data = await response.json();
+  const rawBody = await response.text();
+  let data = {};
+
+  try {
+    data = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    data = {
+      rawBody
+    };
+  }
 
   if (!response.ok) {
-    const details = [data.message, data.errors?.join?.(", "), data.error].filter(Boolean).join(" | ");
+    const details = [
+      `HTTP ${response.status}`,
+      data.message,
+      Array.isArray(data.errors) ? data.errors.map((entry) => entry?.resource || entry?.field || JSON.stringify(entry)).join(", ") : "",
+      data.error,
+      typeof data.rawBody === "string" ? data.rawBody.slice(0, 300) : ""
+    ]
+      .filter(Boolean)
+      .join(" | ");
     throw new Error(details || "Failed to complete Strava token request.");
   }
 

@@ -196,6 +196,7 @@ export const loginWithStrava = async (req, res) => {
       user: safeUser(user)
     });
   } catch (error) {
+    console.error("Strava login failed", error);
     const message = error.message || "Failed to authenticate with Strava.";
     const statusCode = /authorization code|bad request|invalid/i.test(message) ? 400 : 500;
     return res.status(statusCode).json({ message });
