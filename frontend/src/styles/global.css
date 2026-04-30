@@ -1092,4 +1092,107 @@ h2 {
     padding: 0.95rem;
     border-radius: 16px;
   }
+
+  .topbar {
+    min-height: auto;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0;
+  }
+
+  .topbar-topline {
+    align-items: center;
+    min-height: 20px;
+  }
+
+  .topbar-links {
+    display: none;
+  }
+
+  .topbar-body {
+    align-items: center;
+    text-align: center;
+    gap: 0.12rem;
+  }
+
+  .topbar-body .eyebrow {
+    margin-bottom: 0.2rem;
+  }
+
+  .topbar-body h2 {
+    font-size: 1.55rem;
+  }
+
+  .dashboard-page {
+    max-width: 420px;
+    margin: 0 auto;
+    padding-left: 0;
+  }
+
+  .dashboard-stats-card,
+  .dashboard-groups-card,
+  .dashboard-form-card {
+    padding: 1rem;
+  }
+
+  .dashboard-stats-card .hero-stat-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .dashboard-stats-card .hero-stat {
+    min-height: 76px;
+    padding: 0.7rem 0.55rem;
+    align-items: center;
+    text-align: center;
+  }
+
+  .dashboard-stats-card .hero-stat span {
+    font-size: 0.68rem;
+  }
+
+  .dashboard-stats-card .hero-stat strong {
+    font-size: 0.94rem;
+  }
+
+  .dashboard-groups-card .group-grid {
+    max-height: 240px;
+    padding-right: 0.25rem;
+  }
+
+  .dashboard-groups-card .group-tile {
+    padding: 0.9rem;
+  }
+
+  .dashboard-groups-card .group-meta {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .dashboard-forms {
+    gap: 1.1rem;
+  }
+
+  .dashboard-form-card {
+    min-height: 0;
+    max-width: 100%;
+  }
+
+  .dashboard-create-card {
+    min-height: 350px;
+  }
+
+  .dashboard-join-card {
+    min-height: 260px;
+  }
+
+  .dashboard-form-card .section-header {
+    margin-bottom: 0.25rem;
+  }
+
+  .dashboard-create-card .primary-button,
+  .dashboard-join-card .form-submit-bottom {
+    width: 100%;
+    align-self: stretch;
+  }
 }

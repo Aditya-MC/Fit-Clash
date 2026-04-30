@@ -1,10 +1,16 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (window.innerWidth <= 640) {
+      setSidebarOpen(false);
+    }
+  }, []);
 
   return (
     <div className={`app-shell ${sidebarOpen ? "" : "sidebar-collapsed"}`}>
