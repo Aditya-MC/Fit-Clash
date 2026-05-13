@@ -1,7 +1,13 @@
+import { demoRequest, isDemoRequest } from "./demoClient";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const request = async (path, options = {}, attempt = 0) => {
+  if (isDemoRequest(path)) {
+    return demoRequest(path, options);
+  }
+
   const token = localStorage.getItem("fitclash-token");
   const includeAuth = options.includeAuth !== false;
   const headers = {
