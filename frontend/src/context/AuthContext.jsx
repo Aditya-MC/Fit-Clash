@@ -41,12 +41,17 @@ export function AuthProvider({ children }) {
     applyAuthPayload(data);
   };
 
+  const loginDemo = async () => {
+    const data = await api.post("/auth/demo", {}, { includeAuth: false });
+    applyAuthPayload(data);
+  };
+
   const logout = () => {
     localStorage.removeItem("fitclash-token");
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, loginWithStrava, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, loginDemo, loginWithStrava, logout }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

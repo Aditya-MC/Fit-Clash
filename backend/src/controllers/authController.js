@@ -4,8 +4,10 @@ import { User } from "../models/User.js";
 import { demoStore } from "../services/demoStore.js";
 import { exchangeCodeForToken, getStravaAuthUrl } from "../services/stravaService.js";
 
+const getJwtSecret = () => process.env.JWT_SECRET || (demoStore.isEnabled() ? "fitclash-demo-secret" : "");
+
 const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, {
+  jwt.sign({ id }, getJwtSecret(), {
     expiresIn: "7d"
   });
 
@@ -59,7 +61,10 @@ export const registerUser = async (req, res) => {
     const user = await demoStore.createUser({ name, email, password });
     return res.status(201).json({
       token: generateToken(user._id),
-      user: safeUser(user)
+      user: {
+        ...safeUser(user),
+        demo: true
+      }
     });
   }
 
@@ -98,7 +103,10 @@ export const loginUser = async (req, res) => {
 
     return res.json({
       token: generateToken(user._id),
-      user: safeUser(user)
+      user: {
+        ...safeUser(user),
+        demo: true
+      }
     });
   }
 
@@ -119,8 +127,27 @@ export const loginUser = async (req, res) => {
   });
 };
 
+export const loginDemoUser = async (_req, res) => {
+  if (!demoStore.isEnabled()) {
+    return res.status(403).json({ message: "Demo mode is not enabled on this server." });
+  }
+
+  const user = demoStore.getDemoUser();
+
+  return res.json({
+    token: generateToken(user._id),
+    user: {
+      ...safeUser(user),
+      demo: true
+    }
+  });
+};
+
 export const getMe = async (req, res) => {
-  return res.json(safeUser(req.user));
+  return res.json({
+    ...safeUser(req.user),
+    demo: demoStore.isEnabled()
+  });
 };
 
 export const loginWithStrava = async (req, res) => {

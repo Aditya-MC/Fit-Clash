@@ -109,6 +109,37 @@ h2 {
   letter-spacing: -0.03em;
 }
 
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  position: relative;
+}
+
+.auth-hero {
+  position: absolute;
+  inset: 1rem;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+  padding: 1.1rem;
+}
+
 .muted,
 .section-subtle,
 .group-tile p,
@@ -366,6 +397,12 @@ h2 {
   gap: 1.45rem;
 }
 
+.auth-page {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 .card,
 .hero-banner,
 .auth-card,
@@ -837,8 +874,10 @@ h2 {
 
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
   gap: 1rem;
   padding: 1rem;
 }

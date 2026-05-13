@@ -6,6 +6,13 @@ import { calculatePoints, isScoredActivityType } from "../services/scoreService.
 import { exchangeCodeForToken, fetchRecentActivities, getStravaAuthUrl } from "../services/stravaService.js";
 
 export const getConnectUrl = async (_req, res) => {
+  if (demoStore.isEnabled()) {
+    return res.json({
+      demo: true,
+      message: "Demo mode already includes sample Strava-connected athletes."
+    });
+  }
+
   try {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.set("Pragma", "no-cache");
@@ -67,27 +74,10 @@ export const syncActivities = async (req, res) => {
       return res.status(403).json({ message: "Join the group before syncing activities." });
     }
 
-    const { activities: recentActivities } = await fetchRecentActivities(req.user);
-    const eligibleActivities = recentActivities.filter((activity) => isScoredActivityType(activity.type));
-    let added = 0;
-
-    for (const activity of eligibleActivities) {
-      const points = calculatePoints(activity, group.scoringRules);
-      const created = demoStore.addActivityIfNew({
-        userId: req.user._id,
-        groupId,
-        activity,
-        points
-      });
-      if (created) {
-        added += 1;
-      }
-    }
-
     return res.json({
-      message: added ? "Activities synced successfully." : "No new eligible Strava activities found.",
-      syncedActivities: added,
-      ignoredActivities: recentActivities.length - eligibleActivities.length
+      message: "Demo activities are already loaded for this group.",
+      syncedActivities: 0,
+      ignoredActivities: 0
     });
   }
 

@@ -11,7 +11,8 @@ export const protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = process.env.JWT_SECRET || (demoStore.isEnabled() ? "fitclash-demo-secret" : "");
+    const decoded = jwt.verify(token, jwtSecret);
     if (demoStore.isEnabled()) {
       const user = demoStore.getUserById(decoded.id);
       req.user = user ? demoStore.safeUser(user) : null;

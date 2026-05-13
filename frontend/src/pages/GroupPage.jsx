@@ -5,6 +5,7 @@ import ActivityFeed from "../components/ActivityFeed.jsx";
 import LeaderboardTable from "../components/LeaderboardTable.jsx";
 import PlayerCard from "../components/PlayerCard.jsx";
 import Podium from "../components/Podium.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const toRadians = (value) => (value * Math.PI) / 180;
 
@@ -66,6 +67,7 @@ const createDefaultTracker = () => ({
 });
 
 export default function GroupPage() {
+  const { user } = useAuth();
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
   const [playerCard, setPlayerCard] = useState(null);
@@ -269,6 +271,11 @@ export default function GroupPage() {
   const handleConnectStrava = async () => {
     try {
       const result = await api.get("/strava/connect-url");
+      if (result.demo) {
+        setSyncMessage(result.message);
+        return;
+      }
+
       sessionStorage.setItem("fitclash-strava-intent", "connect");
       window.location.href = result.url;
     } catch (connectError) {
@@ -315,11 +322,13 @@ export default function GroupPage() {
 
         <div className="hero-actions">
           <div className="invite-chip">Invite code {group.inviteCode}</div>
-          <button className="ghost-button strava-button" onClick={handleConnectStrava}>
-            Connect Strava
-          </button>
+          {!user?.demo && (
+            <button className="ghost-button strava-button" onClick={handleConnectStrava}>
+              Connect Strava
+            </button>
+          )}
           <button className="primary-button" onClick={handleSync}>
-            Sync activities
+            {user?.demo ? "Refresh demo data" : "Sync activities"}
           </button>
         </div>
       </section>

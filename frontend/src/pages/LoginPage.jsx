@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, loginDemo } = useAuth();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
@@ -36,33 +36,18 @@ export default function LoginPage() {
     }
   };
 
+  const handleDemoLogin = async () => {
+    setError("");
+
+    try {
+      await loginDemo();
+    } catch (demoError) {
+      setError(demoError.message);
+    }
+  };
+
   return (
     <div className="auth-page">
-      <section className="auth-hero">
-        <div className="auth-wireframe">
-          <div className="wire-card wire-large">
-            <span className="wire-line wire-line-long" />
-            <span className="wire-line wire-line-short" />
-            <div className="wire-stack">
-              <span className="wire-field" />
-              <span className="wire-field" />
-              <span className="wire-field" />
-            </div>
-          </div>
-          <div className="wire-card wire-small">
-            <span className="wire-line wire-line-short" />
-            <div className="wire-row">
-              <span className="wire-pill" />
-              <span className="wire-pill" />
-            </div>
-            <div className="wire-stack compact">
-              <span className="wire-field" />
-              <span className="wire-field" />
-            </div>
-            <span className="wire-button" />
-          </div>
-        </div>
-      </section>
 
       <section className="auth-card card-elevated">
         <div className="auth-card-head">
@@ -117,6 +102,9 @@ export default function LoginPage() {
           </button>
           <button className="ghost-button" type="button" onClick={handleStravaLogin}>
             Login with Strava
+          </button>
+          <button className="ghost-button" type="button" onClick={handleDemoLogin}>
+            Try demo mode
           </button>
         </form>
       </section>

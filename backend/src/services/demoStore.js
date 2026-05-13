@@ -60,10 +60,21 @@ const seedDemoData = async () => {
       totalPoints: 126,
       streakDays: 5,
       strava: { athleteId: "athlete-3" }
+    },
+    {
+      _id: "demo-user-4",
+      name: "Meera",
+      email: "meera@fitclash.demo",
+      password,
+      avatar: "",
+      bio: "Fast walks, long hikes, steady points.",
+      totalPoints: 98,
+      streakDays: 3,
+      strava: { athleteId: "athlete-4" }
     }
   ];
 
-  const group = {
+  const groups = [{
     _id: "demo-group-1",
     name: "Sunrise Striders",
     slug: "sunrise-striders-demo",
@@ -88,7 +99,33 @@ const seedDemoData = async () => {
     ],
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
-  };
+  },
+  {
+    _id: "demo-group-2",
+    name: "Weekend Warriors",
+    slug: "weekend-warriors-demo",
+    description: "A lighter weekly challenge with runs, walks, hikes, and gym sessions.",
+    challengeDuration: "weekly",
+    visibility: "public",
+    inviteCode: "WEEKLY",
+    scoringRules: {
+      runPerKm: 12,
+      ridePerKm: 5,
+      swimPerKm: 20,
+      walkPerKm: 4,
+      hikePerKm: 6,
+      workoutPerMinute: 1 / 6,
+      consistencyWeekly: { 3: 15, 5: 35, 7: 60 },
+      consistencyMonthly: { 8: 30, 12: 60, 16: 100, 20: 150 }
+    },
+    members: [
+      { user: "demo-user-1", role: "owner", points: 82, joinedAt: now.toISOString() },
+      { user: "demo-user-2", role: "member", points: 71, joinedAt: now.toISOString() },
+      { user: "demo-user-4", role: "member", points: 98, joinedAt: now.toISOString() }
+    ],
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString()
+  }];
 
   const activities = [
     {
@@ -160,11 +197,95 @@ const seedDemoData = async () => {
       elevationGain: 220,
       pointsAwarded: 126,
       startedAt: new Date(now.getTime() - 86400000 * 2).toISOString()
+    },
+    {
+      _id: "demo-activity-6",
+      user: "demo-user-1",
+      group: "demo-group-2",
+      stravaActivityId: "walk-1",
+      source: "manual",
+      type: "Walk",
+      title: "Lunch Walk",
+      distanceKm: 5.2,
+      movingTimeMinutes: 54,
+      elevationGain: 18,
+      pointsAwarded: 21,
+      startedAt: new Date(now.getTime() - 86400000 * 4).toISOString()
+    },
+    {
+      _id: "demo-activity-7",
+      user: "demo-user-1",
+      group: "demo-group-2",
+      stravaActivityId: "run-3",
+      source: "in_app",
+      type: "Run",
+      title: "Demo Park Run",
+      distanceKm: 5.1,
+      movingTimeMinutes: 29,
+      elevationGain: 24,
+      pointsAwarded: 61,
+      startedAt: new Date(now.getTime() - 86400000 * 2).toISOString()
+    },
+    {
+      _id: "demo-activity-8",
+      user: "demo-user-2",
+      group: "demo-group-2",
+      stravaActivityId: "workout-2",
+      source: "strava",
+      type: "Weight Training",
+      title: "Upper Body Circuit",
+      distanceKm: 0,
+      movingTimeMinutes: 45,
+      elevationGain: 0,
+      pointsAwarded: 8,
+      startedAt: new Date(now.getTime() - 86400000 * 3).toISOString()
+    },
+    {
+      _id: "demo-activity-9",
+      user: "demo-user-2",
+      group: "demo-group-2",
+      stravaActivityId: "ride-3",
+      source: "strava",
+      type: "Ride",
+      title: "Coffee Spin",
+      distanceKm: 12.6,
+      movingTimeMinutes: 38,
+      elevationGain: 64,
+      pointsAwarded: 63,
+      startedAt: new Date(now.getTime() - 86400000).toISOString()
+    },
+    {
+      _id: "demo-activity-10",
+      user: "demo-user-4",
+      group: "demo-group-2",
+      stravaActivityId: "hike-1",
+      source: "strava",
+      type: "Hike",
+      title: "Hill Trail Hike",
+      distanceKm: 10.4,
+      movingTimeMinutes: 122,
+      elevationGain: 320,
+      pointsAwarded: 62,
+      startedAt: new Date(now.getTime() - 86400000 * 2).toISOString()
+    },
+    {
+      _id: "demo-activity-11",
+      user: "demo-user-4",
+      group: "demo-group-2",
+      stravaActivityId: "walk-2",
+      source: "manual",
+      type: "Walk",
+      title: "Evening Recovery Walk",
+      distanceKm: 9,
+      movingTimeMinutes: 95,
+      elevationGain: 30,
+      pointsAwarded: 36,
+      startedAt: new Date(now.getTime() - 86400000).toISOString()
     }
   ];
 
   demoState.users = users;
-  demoState.groups = [group];
+  demoState.groups = groups;
   demoState.activities = activities;
 };
 
@@ -173,6 +294,7 @@ await seedDemoData();
 export const demoStore = {
   isEnabled: () => process.env.DEMO_MODE === "true",
   safeUser,
+  getDemoUser: () => demoState.users[0],
   getUserById: (id) => demoState.users.find((user) => user._id === id) || null,
   getUserByEmail: (email) => demoState.users.find((user) => user.email === email) || null,
   createUser: async ({ name, email, password }) => {
