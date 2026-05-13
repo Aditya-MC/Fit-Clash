@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
+import AppFooter from "./AppFooter.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Layout() {
@@ -73,6 +74,7 @@ export default function Layout() {
           </div>
         </header>
         <Outlet />
+        <AppFooter />
       </main>
     </div>
   );

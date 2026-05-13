@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { api } from "../api/client";
+import AppFooter from "../components/AppFooter.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function LoginPage() {
@@ -48,7 +49,6 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
-
       <section className="auth-card card-elevated">
         <div className="auth-card-head">
           <div>
@@ -108,6 +108,7 @@ export default function LoginPage() {
           </button>
         </form>
       </section>
+      <AppFooter compact />
     </div>
   );
 }

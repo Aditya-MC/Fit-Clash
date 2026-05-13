@@ -283,6 +283,9 @@ h2 {
 }
 
 .main-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
   padding: 18px;
 }
 
@@ -357,6 +360,55 @@ h2 {
   background: transparent;
   color: inherit;
   font-weight: inherit;
+}
+
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding: 1.6rem 0.2rem 0.35rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.app-footer div {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.app-footer strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.app-footer span {
+  font-weight: 700;
+}
+
+.footer-links {
+  justify-content: flex-end;
+}
+
+.footer-links span {
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.app-footer-compact {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 1;
+  max-width: 780px;
+  margin: 1.5rem auto 0;
+  padding: 0.95rem 0 0;
 }
 
 .topbar-meta,
@@ -1082,6 +1134,7 @@ h2 {
   .topbar,
   .hero-banner,
   .section-header,
+  .app-footer,
   .auth-card-head,
   .hero-actions {
     flex-direction: column;
@@ -1114,6 +1167,11 @@ h2 {
 
   .podium {
     grid-template-columns: 1fr;
+  }
+
+  .footer-links {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 
@@ -1160,6 +1218,34 @@ h2 {
 
   .topbar-body h2 {
     font-size: 1.55rem;
+  }
+
+  .app-footer {
+    gap: 0.7rem;
+    padding-top: 1rem;
+    text-align: left;
+  }
+
+  .app-footer div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .footer-links {
+    flex-direction: row;
+    gap: 0.55rem;
+  }
+
+  .footer-links span {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .app-footer-compact {
+    position: static;
+    width: 100%;
+    margin-top: 1rem;
   }
 
   .dashboard-page {
